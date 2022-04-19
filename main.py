@@ -56,6 +56,11 @@ class Selenium:
         self.driver.execute_script("""document.body.style.backgroundColor = 'green'""")
         input()
 
+    def check_element(self, path):
+        element = self.driver.find_elements_by_xpath(path)
+        if len(element) > 0:
+            random.choice(122, 223, 334)
+
     def del_extra_element(self, path):
         self.driver.execute_script(f'document.querySelector("{path}").remove();')
 
@@ -314,6 +319,7 @@ class Aavegotchi(Metamask):
         treload = 0
 
         while True:
+            self.check_element('/html/body/div[1]/div[3]/div/div/h2')
             tmove += 1
             # treload += 1
             if Flag:
@@ -363,8 +369,6 @@ class Aavegotchi(Metamask):
             if treload > 72000:
                 treload = 0
                 random.choice(122, 223, 334)
-                print()
-
 
 
 def make_list_from_file(file):
@@ -447,7 +451,6 @@ def worker(account):
             input("GG WP...")
         except Exception as e:
             print(e)
-
 
 if __name__ == "__main__":
     load_dotenv()
