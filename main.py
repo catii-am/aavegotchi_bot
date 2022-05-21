@@ -442,7 +442,7 @@ def worker(account):
                 EC.presence_of_element_located((By.XPATH, '//*[@id="d1"]/div[2]/div/div[3]/input'))
             )
             driver.find_element_by_xpath('//*[@id="d1"]/div[2]/div/div[3]/input').send_keys(
-                'https://verse.aavegotchi.com/animations/pickups_x3.png')
+                'https://verse-static.aavegotchi.com/animations/pickups_x3.png')
             driver.find_element_by_xpath('//*[@id="d1"]/div[2]/div/div[5]/input').send_keys(
                 'https://i.ibb.co/dKCTtgm/rgb-conv.png')
             print('RO added')
